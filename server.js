@@ -13,23 +13,41 @@ const PORT = process.env.PORT || 4000;
 /* ---------------- TRUST PROXY (Vercel fix) ---------------- */
 app.set("trust proxy", 1);
 
-/* ---------------- SECURITY MIDDLEWARE ---------------- */
+/* ---------------- SECURITY ---------------- */
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
 
-/* ---------------- CORS ---------------- */
+/* ---------------- ALLOWED ORIGINS ---------------- */
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://shop-now-client.vercel.app",
+  process.env.CLIENT_URL, // set this on Vercel
 ];
 
+/* ---------------- CORS ---------------- */
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      // allow server-to-server / postman
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("❌ CORS BLOCKED:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-access-token",
+      "token",
+    ],
   }),
 );
 
@@ -37,7 +55,7 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-/* ---------------- LOGGER ---------------- */
+/* ---------------- LOGGING ---------------- */
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
@@ -64,20 +82,11 @@ app.use("/api/orders", require("./routes/orders"));
 app.use("/api/messages", require("./routes/messages"));
 app.use("/api/admin", require("./routes/admin"));
 
-/* ---------------- HEALTH CHECK ---------------- */
+/* ---------------- HEALTH ---------------- */
 app.get("/api/health", (_, res) => {
   res.json({
     status: "ok",
     time: new Date(),
-  });
-});
-
-/* ---------------- ERROR HANDLER ---------------- */
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-
-  res.status(err.status || 500).json({
-    message: err.message || "Internal Server Error",
   });
 });
 
@@ -88,7 +97,16 @@ app.use((req, res) => {
   });
 });
 
-/* ---------------- DB ---------------- */
+/* ---------------- ERROR HANDLER ---------------- */
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+
+  res.status(500).json({
+    message: err.message || "Internal Server Error",
+  });
+});
+
+/* ---------------- DB CONNECT ---------------- */
 mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
