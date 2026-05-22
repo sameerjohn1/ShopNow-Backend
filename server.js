@@ -34,14 +34,20 @@ if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
 
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 200,
-    standardHeaders: true,
-    legacyHeaders: false,
-  }),
-);
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+
+  keyGenerator: (req) => {
+    return req.headers["x-forwarded-for"] || req.socket?.remoteAddress;
+  },
+});
+
+app.use(limiter);
+
+app.set("trust proxy", true);
 
 /* ⚠️ WARNING: Vercel doesn't support real uploads folder */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
