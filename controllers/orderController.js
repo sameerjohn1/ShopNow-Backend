@@ -103,15 +103,12 @@ exports.getOrder = async (req, res) => {
 
 exports.cancelOrder = async (req, res) => {
   try {
-    if (!req.params.id) {
-      return res.status(400).json({ message: "Order ID required" });
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid order ID" });
     }
 
     const order = await Order.findById(req.params.id).maxTimeMS(5000);
-
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
-    }
+    if (!order) return res.status(404).json({ message: "Order not found" });
 
     if (order.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Not authorized" });
@@ -123,14 +120,19 @@ exports.cancelOrder = async (req, res) => {
         .json({ message: "Cannot cancel order at this stage" });
     }
 
+    // ✅ Stock restore + sold fix
     for (const item of order.items) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stock: item.quantity, sold: -item.quantity },
-      });
+      const product = await Product.findById(item.product);
+      if (product) {
+        product.stock += item.quantity;
+        product.sold = Math.max(0, (product.sold || 0) - item.quantity);
+        await product.save();
+      }
     }
 
     order.status = "cancelled";
     await order.save();
+    await order.populate("items.product", "name images price"); // ✅
     res.json({ order });
   } catch (err) {
     console.error("❌ cancelOrder error:", err.message);
