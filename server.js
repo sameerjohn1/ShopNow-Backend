@@ -21,16 +21,12 @@ app.use(
 );
 
 /* ---------------- ALLOWED ORIGINS ---------------- */
-const allowedOrigins = [
-  "http://localhost:5173",
-  process.env.CLIENT_URL, // set this on Vercel
-];
 
-/* ---------------- CORS ---------------- */
+const allowedOrigins = [process.env.CLIENT_URL, "http://localhost:5173"];
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow server-to-server / postman
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
@@ -41,15 +37,10 @@ app.use(
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "x-access-token",
-      "token",
-    ],
   }),
 );
+
+app.options("*", cors());
 
 /* ---------------- BODY PARSER ---------------- */
 app.use(express.json({ limit: "10mb" }));
