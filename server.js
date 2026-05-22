@@ -8,56 +8,63 @@ const path = require("path");
 require("dotenv").config();
 
 const app = express();
-
 const PORT = process.env.PORT || 4000;
 
-/* ✅ IMPORTANT FIX FOR VERCEL PROXY */
+/* ---------------- TRUST PROXY (Vercel fix) ---------------- */
 app.set("trust proxy", 1);
 
+/* ---------------- SECURITY MIDDLEWARE ---------------- */
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
 
+/* ---------------- CORS ---------------- */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://shop-now-client.vercel.app",
+];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true,
   }),
 );
 
+/* ---------------- BODY PARSER ---------------- */
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
+/* ---------------- LOGGER ---------------- */
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
 
+/* ---------------- RATE LIMIT ---------------- */
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-
-  keyGenerator: (req) => {
-    return req.headers["x-forwarded-for"] || req.socket?.remoteAddress;
-  },
+  keyGenerator: (req) =>
+    req.headers["x-forwarded-for"] || req.socket?.remoteAddress,
 });
 
 app.use(limiter);
 
-app.set("trust proxy", true);
-
-/* ⚠️ WARNING: Vercel doesn't support real uploads folder */
+/* ---------------- STATIC FILES ---------------- */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+/* ---------------- ROUTES ---------------- */
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/products", require("./routes/products"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/messages", require("./routes/messages"));
 app.use("/api/admin", require("./routes/admin"));
 
+/* ---------------- HEALTH CHECK ---------------- */
 app.get("/api/health", (_, res) => {
   res.json({
     status: "ok",
@@ -65,6 +72,7 @@ app.get("/api/health", (_, res) => {
   });
 });
 
+/* ---------------- ERROR HANDLER ---------------- */
 app.use((err, req, res, next) => {
   console.error(err.stack);
 
@@ -73,12 +81,14 @@ app.use((err, req, res, next) => {
   });
 });
 
+/* ---------------- 404 ---------------- */
 app.use((req, res) => {
   res.status(404).json({
     message: "Route not found",
   });
 });
 
+/* ---------------- DB ---------------- */
 mongoose
   .connect(process.env.MONGO_URI)
   .then(async () => {
@@ -86,7 +96,6 @@ mongoose
 
     await require("./config/seed")();
 
-    /* ❌ Vercel serverless = no app.listen */
     if (process.env.NODE_ENV !== "production") {
       app.listen(PORT, () => {
         console.log(`🚀 Server running on port ${PORT}`);
