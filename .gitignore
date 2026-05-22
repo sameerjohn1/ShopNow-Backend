@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime files
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage / testing
+coverage/
+
+# Build outputs (if any)
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Uploads (optional - if local files not needed in git)
+uploads/
+
+# Vercel
+.vercel
+
+# Editor
+.vscode/
+.idea/
