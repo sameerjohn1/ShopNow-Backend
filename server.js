@@ -11,6 +11,9 @@ const app = express();
 
 const PORT = process.env.PORT || 4000;
 
+/* ✅ IMPORTANT FIX FOR VERCEL PROXY */
+app.set("trust proxy", 1);
+
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -35,10 +38,12 @@ app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
-    message: { message: "Too many requests" },
+    standardHeaders: true,
+    legacyHeaders: false,
   }),
 );
 
+/* ⚠️ WARNING: Vercel doesn't support real uploads folder */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", require("./routes/auth"));
@@ -69,13 +74,13 @@ app.use((req, res) => {
 });
 
 mongoose
-  .connect(process.env.MONGO_URI || "mongodb://localhost:27017/ecommerce")
+  .connect(process.env.MONGO_URI)
   .then(async () => {
     console.log("✅ MongoDB connected");
 
     await require("./config/seed")();
 
-    // Local server only
+    /* ❌ Vercel serverless = no app.listen */
     if (process.env.NODE_ENV !== "production") {
       app.listen(PORT, () => {
         console.log(`🚀 Server running on port ${PORT}`);
