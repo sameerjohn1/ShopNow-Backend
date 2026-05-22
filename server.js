@@ -22,25 +22,36 @@ app.use(
 
 /* ---------------- ALLOWED ORIGINS ---------------- */
 
-const allowedOrigins = [process.env.CLIENT_URL, "http://localhost:5173"];
+/* ============ CORS FIX ============ */
+const allowedOrigins = [
+  "https://shop-now-client-iota.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+if (
+  process.env.CLIENT_URL &&
+  !allowedOrigins.includes(process.env.CLIENT_URL)
+) {
+  allowedOrigins.push(process.env.CLIENT_URL);
+}
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    console.log("❌ CORS BLOCKED:", origin);
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
 
-      console.log("❌ CORS BLOCKED:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  }),
-);
-
-app.options("*", cors());
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // ← IMPORTANT: same options pass karo!
 
 /* ---------------- BODY PARSER ---------------- */
 app.use(express.json({ limit: "10mb" }));
